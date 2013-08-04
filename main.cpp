@@ -286,8 +286,8 @@ int main()
     Boundary1D left(0.0q, Dirichlet, 0.0q); // x=0, Condição de Contorno de Dirichlet, T(0) = 0
     Boundary1D right(1.0q, Dirichlet, 1.0q); // x=1, Condição de Contorno de Dirichlet, T(1) = 1
 
-    int n = 11;
-    //int n = 1000001;
+    //int n = 11;
+    int n = 501;
 
     Diffusion1Dp mesh(ParedePlana, n, left, right, data);
         mesh.solver();
@@ -301,7 +301,7 @@ int main()
     for(int i=0; i<n; i++)
         T[i] = left.bcValue + _m*(i*_h+left.x);
 
-    int itmax = 1000000, it=0;
+    int itmax = 100000000, it=0;
     tFloat *L = new tFloat[itmax];
     tFloat itol = 1.0e-35q;
 
@@ -312,12 +312,13 @@ int main()
         ++it;
         GaussSeidel(n, T, mesh.equationsSystem.equation);
         L[it] = Residual(n, T, mesh.equationsSystem.equation);
+        if(!(it%1000)) std::cout<<"\n"<<it<<"\t"<<print(L[it]);
 
     }while(it<itmax && L[it]>itol); // Critérios de parada
 
     const std::string cmd_filename = "plotconfig_it.gnu";
     const std::string pic_filename = "iteractive_it.png";
-    const std::string dat1_filename = "data_it.txt";
+    const std::string dat1_filename = "data_it2.txt";
 
     // Solução numérica
     std::ofstream file1(dat1_filename.c_str());
@@ -334,7 +335,8 @@ int main()
              "set logscale y\n"
              "set format y \"10^{%L}\" \n"
              "set lmargin 10 \n";
-    file3 << "set title \"ERROS DE ITERAÇÃO \\n Convergência para N=1000001\"\n"
+    "set rmargin 50 \n";
+    file3 << "set title \"ERROS DE ITERAÇÃO \\n Convergência para N=501\"\n"
              "set ylabel \"L^{n}/L^{0}\" \n"
              "set xlabel 'Número de iterações'\n";
 
@@ -348,8 +350,10 @@ int main()
     std::system(cmd2.c_str());
 
     // <[QUESTÃO 4.4]
-*/
 
+    */
+
+    /*
     // >[QUESTÃO 4.5]
     DiffusionData data;
     data.k = 1.0q;
@@ -372,6 +376,7 @@ int main()
         Diffusion1Dp mesh(ParedePlana, n+1, left, right, data);
         mesh.solver();
         erro[i] = fabsq(0.5q - mesh.equationsSystem.getT(n/2));
+
     }
 
     const std::string cmd_filename = "plotconfig_45.gnu";
@@ -408,6 +413,7 @@ int main()
     std::system(cmd2.c_str());
 
     // <[QUESTÃO 4.5]
+*/
 
     /*
     // >[QUESTÃO 5.1]
@@ -463,5 +469,7 @@ int main()
 
     // <[QUESTÃO 5.1]
 */
+
+
 }
 
