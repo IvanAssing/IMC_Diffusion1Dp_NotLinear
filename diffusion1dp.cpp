@@ -25,72 +25,60 @@ void Diffusion1Dp::solver(void)
 {
     // Configura o número de equações do solver TDMA
     equationsSystem.setMaxEquations(n);
+    equationsSystem.neq = n;
 
     // DISCRETIZAÇÃO PARA O PROBLEMA DE DIFUSÃO DE CALOR EM PAREDA PLANA
     if(problemType == ParedePlana){
 
-        // Aplica a condição de contorno esquerdo
-        if(boundaryLeft.type == Dirichlet)
-            equationsSystem(1.0q, 0.0q, 0.0q, boundaryLeft.bcValue); // Se Dirichlet
-        else
-            equationsSystem(1.0q, 0.0q, 1.0q, boundaryLeft.bcValue*h); // Se Neumann
+        tFloat ke, kw, kE, kW, kP;
+        tInteger it = -1;
+        tFloat itol = 1.0e-35q;
+        L = new tFloat[data.nmax];
 
-        // Aplica discretização de d2T/dx2 = S(x), com CDS-2
-        for(tInteger i=1; i<n-1; i++){
-            tFloat xp = boundaryLeft.x+i*h;
-            equationsSystem(2.0q, 1.0q, 1.0q, -h*h*data.heatSource->operator ()(xp));
-        }
+        // Estimativa para solução (reta)
+        tFloat _m = (boundaryRight.bcValue-boundaryLeft.bcValue)/(boundaryRight.x-boundaryLeft.x);
+        for(int i=0; i<n; i++)
+            equationsSystem.T[i] = boundaryLeft.bcValue + _m*(i*h+boundaryLeft.x);
 
-        // Aplica a condição de contorno direito
-        if(boundaryRight.type == Dirichlet)
-            equationsSystem(1.0q, 0.0q, 0.0q, boundaryRight.bcValue); // Se Dirichlet
-        else
-            equationsSystem(1.0q, 1.0q, 0.0q, -boundaryRight.bcValue*h); // Se Neumann
+        // Ciclo iterativo
+        do{
+            it++;
+
+            equationsSystem.equation[0][0] = 1.0q;
+            equationsSystem.equation[0][1] = 0.0q;
+            equationsSystem.equation[0][2] = 0.0q;
+            equationsSystem.equation[0][3] = boundaryLeft.bcValue;
+
+            for(tInteger i=1; i<n-1; i++){
+                kW = data.k->operator ()(equationsSystem.T[i-1]);
+                kP = data.k->operator ()(equationsSystem.T[i]);
+                kE = data.k->operator ()(equationsSystem.T[i+1]);
+
+                kw = 2.0q*kW*kP/(kW+kP);
+                ke = 2.0q*kE*kP/(kE+kP);
+
+                equationsSystem.equation[i][0] = kw + ke;
+                equationsSystem.equation[i][1] = kw;
+                equationsSystem.equation[i][2] = ke;
+                equationsSystem.equation[i][3] = -h*h*data.heatSource->operator ()(boundaryLeft.x+i*h);
+            }
+
+            equationsSystem.equation[n-1][0] = 1.0q;
+            equationsSystem.equation[n-1][1] = 0.0q;
+            equationsSystem.equation[n-1][2] = 0.0q;
+            equationsSystem.equation[n-1][3] = boundaryRight.bcValue;
+
+            //equationsSystem.printCoefficients();
+            L[it] = Residual(n, equationsSystem.T, equationsSystem.equation);
+
+            equationsSystem.solver();
+
+            //L[it] = Residual(n, equationsSystem.T, equationsSystem.equation);
+
+            std::cout<<"\n\n****"<<it<<"\t"<<print(L[it]/L[0]);
+
+        }while(it+1<data.nmax && L[it]>itol); // Critérios de parada
     }
-
-    // DISCRETIZAÇÃO PARA O PROBLEMA DE DIFUSÃO DE CALOR ALETA
-    if(problemType == Aleta){
-
-        // Aplica a condição de contorno esquerdo
-        if(boundaryLeft.type == Dirichlet)
-            equationsSystem(1.0q, 0.0q, 0.0q, data.Tb); // Se Dirichlet
-        else
-            equationsSystem(data.k-data.H*h, 0.0q, data.k, -h*data.H*data.Tinf); // Se Robin
-
-        tFloat m2_h2 = (data.H*data.P*h*h)/(data.k*data.Ab);
-        tFloat ap = 2.0q+m2_h2;
-        tFloat bp = m2_h2*data.Tinf;
-
-        // Aplica discretização de d2T/dx2 = S(T), com CDS-2
-        for(tInteger i=1; i<n-1; i++)
-            equationsSystem(ap, 1.0q, 1.0q, bp);
-
-        // Aplica a condição de contorno direito
-        if(boundaryRight.type == Dirichlet)
-            equationsSystem(1.0q, 0.0q, 0.0q, data.Tb); // Se Dirichlet
-        else
-            equationsSystem(data.k+data.H*h, data.k, 0.0q, h*data.H*data.Tinf); // Se Robin
-    }
-
-    // DISCRETIZAÇÃO PARA O PROBLEMA DE DIFUSÃO DE QUANTIDADE DE MOVIMENTO LINEAR
-    if(problemType == QML){
-
-        // Aplica a condição de contorno esquerdo
-        equationsSystem(1.0q, 0.0q, 0.0q, 0.0q); // Dirichlet
-
-        tFloat bp = -data.C*h*h/data.mi;
-
-        // Aplica discretização de mi.d2u/dy2 = C, com CDS-2
-        for(tInteger i=1; i<n-1; i++)
-            equationsSystem(2.0q, 1.0q, 1.0q, bp);
-
-        // Aplica a condição de contorno direito
-        equationsSystem(1.0q, 0.0q, 0.0q, 0.0q); // Dirichlet
-    }
-
-
-    // Resolve o sistema de equações lineares
-    equationsSystem.solver();
 
     // Calcula a temperatura média
     averageValue = 0.0q;
@@ -100,11 +88,9 @@ void Diffusion1Dp::solver(void)
 
     // Calcula o fluxo de calor
     //heatFlowLeft = -data.k/h*(equationsSystem.getT(1)-equationsSystem.getT(0));
-    heatFlowLeft = -0.5q*data.k/h*(4.0q*equationsSystem.getT(1)-3.0q*equationsSystem.getT(0)-equationsSystem.getT(2));
+    heatFlowLeft = 0.5;//-0.5q*data.k/h*(4.0q*equationsSystem.getT(1)-3.0q*equationsSystem.getT(0)-equationsSystem.getT(2));
     //heatFlowRight = -data.k/h*(equationsSystem.getT(n-1)-equationsSystem.getT(n-2));
-    heatFlowRight = -0.5q*data.k/h*(3.0q*equationsSystem.getT(n-1)-4.0q*equationsSystem.getT(n-2)+equationsSystem.getT(n-3));
-    if(problemType == Aleta)
-        heatFlowLeft *= data.Ab;
+    heatFlowRight = 0.5;//-0.5q*data.k/h*(3.0q*equationsSystem.getT(n-1)-4.0q*equationsSystem.getT(n-2)+equationsSystem.getT(n-3));
 
     // Calcula Valor máximo
     maxValue = equationsSystem.getT(0);
@@ -120,12 +106,15 @@ void Diffusion1Dp::plotSolution(Functor1D &analyticalSolution)
     const std::string dat1_filename = "data1.txt";
     const std::string dat2_filename = "data2.txt";
 
+
     // Solução numérica
     std::ofstream file1(dat1_filename.c_str());
     for(tInteger i=0; i<n; i++)
+    {
         file1<<static_cast<double>(boundaryLeft.x+i*h)<<"\t"<<
                static_cast<double>(equationsSystem.getT(i))<<std::endl;
-    file1.close();
+    }
+    //file1.close();
 
     // Solução Analítica
     std::ofstream file2(dat2_filename.c_str());
@@ -134,7 +123,7 @@ void Diffusion1Dp::plotSolution(Functor1D &analyticalSolution)
         tFloat xp = boundaryLeft.x+i*h_10;
         file2<<static_cast<double>(xp)<<"\t"<<static_cast<double>(analyticalSolution(xp))<<std::endl;
     }
-    file2.close();
+    //file2.close();
 
     std::ofstream file3(cmd_filename.c_str());
     file3 <<
@@ -143,23 +132,19 @@ void Diffusion1Dp::plotSolution(Functor1D &analyticalSolution)
              "set key inside right top vertical Right noreverse enhanced autotitles box linetype -1 linewidth 1.000\n"
              "set grid\n";
 
-    if(problemType == ParedePlana)
-        file3 << "set title \""<<STR_PAREDE_PLANA<<"\\nResolução com MDF / Aproximação com CDS-2\"\n"
+        file3 << "set title \"TITLE\"\n"
                  "set xlabel 'x'\n"
                  "set ylabel 'Temperatura'\n";
-    else if(problemType == Aleta)
-        file3 << "set title \""<<STR_ALETA<<"\\nResolução com MDF / Aproximação com CDS-2\"\n"
-                 "set xlabel 'x'\n"
-                 "set ylabel 'Temperatura'\n";
-    else
-        file3 << "set title \""<<STR_QML<<"\\nResolução com MDF / Aproximação com CDS-2\"\n"
-                 "set xlabel 'y'\n"
-                 "set ylabel 'Velocidade'\n";
-    file3 <<
 
+    file3 <<
              "plot '" <<dat2_filename<<"' t\"Solução Analítica\" with lines lt 2 lc 2 lw 2, "
              "'" <<dat1_filename<<"' t\"Solução Numérica\" with points lt 2 lc 1 pt 13 lw 5";
-    file3.close();
+    //file3.close();
+
+
+    file1<<std::flush;
+    file2<<std::flush;
+    file3<<std::flush;
 
     const std::string cmd1 = "gnuplot " + cmd_filename; // Gráfico com GNUPLOT
     const std::string cmd2 = "eog " + pic_filename; // Visualizador de imagem
@@ -331,5 +316,45 @@ void Diffusion1Dp::printSecondaryResults(tFloat AS_average, tFloat AS_left, tFlo
 
 #endif
     std::cout<<std::endl<<std::setfill('-')<<std::setw(30+3*(OUT_FLOAT_WIDTH+5))<<""<<std::setfill(' ');
+}
+
+
+void Diffusion1Dp::plotInteractionLog(void)
+{
+    const std::string cmd_filename = "plotconfig_it.gnu";
+    const std::string pic_filename = "iteractive_it.png";
+    const std::string dat1_filename = "data_it.txt";
+
+    // Solução numérica
+    std::ofstream file1(dat1_filename.c_str());
+    for(tInteger i=1; i<data.nmax; i++)
+        file1<<i<<"\t"<<static_cast<double>(L[i]/L[0])<<std::endl;
+    //file1.close();
+
+    std::ofstream file3(cmd_filename.c_str());
+    file3 <<
+             "set terminal pngcairo enhanced font \"arial,12\" size 1600, 1000 \n"
+             "set output '" << pic_filename <<"'\n"
+             "#set key inside right top vertical Right noreverse enhanced autotitles box linetype -1 linewidth 1.000\n"
+             "set grid\n"
+             "set logscale y\n"
+             "set format y \"10^{%L}\" \n"
+             "set lmargin 10 \n";
+    "set rmargin 50 \n";
+    file3 << "set title \"ERROS DE ITERAÇÃO\"\n"
+             "set ylabel \"L^{n}/L^{0}\" \n"
+             "set xlabel 'Número de iterações'\n";
+
+    file3 <<"plot '" <<dat1_filename<<"' t\"\" with lines lt 2 lc 1 lw 1";
+    //file3.close();
+
+    file1<<std::flush;
+    file3<<std::flush;
+
+    const std::string cmd1 = "gnuplot " + cmd_filename; // Gráfico com GNUPLOT
+    const std::string cmd2 = "eog " + pic_filename; // Visualizador de imagem
+
+    std::system(cmd1.c_str());
+    std::system(cmd2.c_str());
 }
 

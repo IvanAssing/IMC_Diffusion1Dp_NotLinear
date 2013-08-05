@@ -12,7 +12,7 @@
 class DiffusionData
 {
     public:
-        tFloat k;
+        Functor1D *k;
         tFloat H;
         tFloat Tinf;
         tFloat Tb;
@@ -21,9 +21,10 @@ class DiffusionData
         tFloat mi;
         tFloat C;
         Functor1D *heatSource;
+        tInteger nmax;
 
         DiffusionData(){
-            k = 0.0;
+            k = new PolynomialConstant(0.0);
             H = 0.0;
             Tinf = 0.0;
             Tb = 0.0;
@@ -32,6 +33,7 @@ class DiffusionData
             mi = 0.0;
             C = 0.0;
             heatSource = new PolynomialConstant(0.0);
+            nmax = 50;
         }
 };
 
@@ -51,7 +53,8 @@ class Diffusion1Dp
         DiffusionData data;
         DiffusionProblem problemType;
         tFloat l, h;
-        tInteger n;
+        tInteger n, nmax;
+        tFloat *L;
 
     public:
         TDMA equationsSystem;
@@ -62,6 +65,7 @@ class Diffusion1Dp
         Diffusion1Dp(DiffusionProblem type, tInteger nodes, Boundary1D left, Boundary1D right, DiffusionData data);
 
         void plotSolution(Functor1D &analyticalSolution);
+        void plotInteractionLog(void);
         void printSolution(Functor1D &analyticalSolution);
         void printSecondaryResults(tFloat AS_average = 0.0q, tFloat AS_left = 0.0q, tFloat AS_right = 0.0q,
                                    tFloat AS_left_1 = 0.0q, tFloat AS_right_1 = 0.0q);

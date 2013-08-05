@@ -10,7 +10,7 @@
 // Classe para resolução de Sistema de Equações Lineares tipo TDMA
 class TDMA
 {
-    private:
+    public:
         tInteger neq;
         tInteger nEqMax;
         tFloat *P,*Q,*T;

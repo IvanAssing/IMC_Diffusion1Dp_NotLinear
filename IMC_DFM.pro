@@ -3,9 +3,6 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-QMAKE_CXXFLAGS += -fopenmp
-QMAKE_LFLAGS *= -fopenmp
-
 LIBS += -lquadmath
 
 SOURCES += main.cpp \

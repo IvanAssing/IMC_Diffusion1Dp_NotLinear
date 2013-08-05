@@ -56,6 +56,15 @@ class PolynomialQuartic : public Functor1D
         virtual tFloat operator()(tFloat x);
 };
 
+// Objeto Função Exponencial
+class Exponential : public Functor1D
+{
+    public:
+        tFloat a, b;
+        Exponential(tFloat a, tFloat b);
+        virtual tFloat operator()(tFloat x);
+};
+
 // Objeto Função para Temperatura Analítica em Aleta
 class SpecialFunctorTA : public Functor1D
 {
@@ -101,5 +110,16 @@ class SpecialFunctorQA : public Functor1D
                          tFloat L);
         virtual tFloat operator()(tFloat x);
 };
+
+
+
+// Objeto Função Exponencial
+class SpecialFunctorTA2 : public Functor1D
+{
+    public:
+        SpecialFunctorTA2(){}
+        virtual tFloat operator()(tFloat x);
+};
+
 
 #endif // FUNCTOR1D_H

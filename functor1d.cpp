@@ -60,6 +60,18 @@ tFloat PolynomialQuartic::operator ()(tFloat x)
 }
 
 
+Exponential::Exponential(tFloat _a, tFloat _b)
+    :a(_a), b(_b)
+{
+
+}
+
+tFloat Exponential::operator ()(tFloat x)
+{
+    return a*expq(b*x);
+}
+
+
 SpecialFunctorTA::SpecialFunctorTA(tFloat _k,
                                    tFloat _H,
                                    tFloat _Tinf,
@@ -108,5 +120,11 @@ tFloat SpecialFunctorQA::operator ()(tFloat x)
 #else
     return (sqrtq(H*P*k*Ab)*(Tb - Tinf)*((sinhq(m*L)+(H/(m*k))*coshq(m*L))/(coshq(m*L)+(H/(m*k))*sinhq(m*L))));
 #endif
+}
+
+
+tFloat SpecialFunctorTA2::operator ()(tFloat x)
+{
+    return logq(1.0q + (expq(1.0q) - 1.0q)*x);
 }
 
